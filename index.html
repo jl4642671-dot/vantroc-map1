@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VanTroc - Carte des Annonces</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #218051;
+            --accent: #32B8C6;
+            --bg: #FCFCF9;
+            --surface: #FFFFFF;
+            --text: #134252;
+            --text-light: #626C7C;
+            --danger: #C0152F;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        /* NAVIGATION */
+        nav {
+            background: var(--surface);
+            padding: 16px 32px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+
+        nav h1 {
+            color: var(--primary);
+            font-size: 24px;
+            margin: 0;
+            font-weight: 700;
+        }
+
+        nav div {
+            display: flex;
+            gap: 32px;
+        }
+
+        nav a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+            font-size: 14px;
+        }
+
+        nav a:hover {
+            color: var(--primary);
+        }
+
+        /* CARTE */
+        #map {
+            width: 100%;
+            height: calc(100vh - 70px);
+        }
+
+        /* MODALE */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: var(--surface);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s ease;
+            position: relative;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: transparent;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: var(--text-light);
+            z-index: 1001;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            color: var(--text);
+        }
+
+        /* SECTION ANNONCE */
+        .listing-section {
+            padding: 24px;
+            border-bottom: 2px solid rgba(0,0,0,0.08);
+            margin-top: 20px;
+        }
+
+        .listing-type-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .listing-type-badge.offer {
+            background: rgba(33, 128, 81, 0.1);
+            color: var(--primary);
+        }
+
+        .listing-type-badge.trade {
+            background: rgba(50, 184, 198, 0.1);
+            color: var(--accent);
+        }
+
+        .listing-type-badge.request {
+            background: rgba(255, 184, 0, 0.1);
+            color: #FFB800;
+        }
+
+        .listing-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .listing-description {
+            font-size: 14px;
+            color: var(--text-light);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .listing-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 13px;
+        }
+
+        .listing-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-light);
+        }
+
+        /* SECTION PROFIL */
+        .profile-section {
+            padding: 24px;
+        }
+
+        .profile-header-mini {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .avatar-mini {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(33, 128, 81, 0.2);
+        }
+
+        .profile-info-mini {
+            flex: 1;
+        }
+
+        .profile-name-mini {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .profile-rating-mini {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 8px;
+        }
+
+        .profile-rating-mini .stars {
+            color: #FFB800;
+        }
+
+        .profile-bio-mini {
+            font-size: 13px;
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+
+        .profile-stats-mini {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 16px;
+            background: rgba(33, 128, 81, 0.05);
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-mini {
+            text-align: center;
+        }
+
+        .stat-number-mini {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label-mini {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+
+        /* BOUTONS */
+        .action-buttons-mini {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1a6a42;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 128, 81, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(33, 128, 81, 0.1);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(33, 128, 81, 0.15);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            nav {
+                padding: 12px 16px;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            nav h1 {
+                font-size: 20px;
+            }
+
+            nav div {
+                gap: 16px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            nav a {
+                font-size: 12px;
+            }
+
+            .modal-content {
+                width: 95%;
+                border-radius: 12px;
+            }
+
+            .listing-section,
+            .profile-section {
+                padding: 16px;
+            }
+
+            .listing-title {
+                font-size: 20px;
+            }
+
+            .profile-stats-mini {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <h1>🚐 VanTroc</h1>
+        <div>
+            <a href="#home">Accueil</a>
+            <a href="#map">Carte</a>
+            <a href="#create">Créer annonce</a>
+        </div>
+    </nav>
+
+    <div id="map"></div>
+
+    <!-- MODALE ANNONCE + PROFIL -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">✕</button>
+
+            <!-- SECTION ANNONCE -->
+            <div class="listing-section">
+                <div class="listing-type-badge offer" id="typeBadge">Offre</div>
+                <h2 class="listing-title" id="listingTitle">Frigo portable 12V</h2>
+                <p class="listing-description" id="listingDescription">Frigo portable en très bon état, parfait pour les voyages en van. Très peu utilisé.</p>
+                
+                <div class="listing-meta">
+                    <div class="listing-meta-item">📍 <span id="listingLocation">Marseille, France</span></div>
+                    <div class="listing-meta-item">📅 <span id="listingDate">10 déc 2024</span></div>
+                </div>
+            </div>
+
+            <!-- SECTION PROFIL -->
+            <div class="profile-section">
+                <div class="profile-header-mini">
+                    <div class="avatar-mini" id="profileAvatar">🚐</div>
+                    <div class="profile-info-mini">
+                        <div class="profile-name-mini" id="profileName">Alexandre Dupont</div>
+                        <div class="profile-rating-mini">
+                            <span class="stars">⭐</span>
+                            <span id="profileRating">4.8</span>
+                            <span style="color: var(--text-light);">(<span id="profileReviews">47</span> avis)</span>
+                        </div>
+                        <div class="profile-bio-mini" id="profileBio">Voyageur passionné depuis 2018</div>
+                    </div>
+                </div>
+
+                <div class="profile-stats-mini">
+                    <div class="stat-mini">
+                        <div class="stat-number-mini" id="profileAnnouncements">42</div>
+                        <div class="stat-label-mini">Annonces actives</div>
+                    </div>
+                    <div class="stat-mini">
+                        <div class="stat-number-mini" id="profileReliability">100%</div>
+                        <div class="stat-label-mini">Fiabilité</div>
+                    </div>
+                </div>
+
+                <div class="action-buttons-mini">
+                    <button class="btn btn-primary" onclick="contactUser()">💬 Contacter</button>
+                    <button class="btn btn-secondary" onclick="toggleFavorite()">❤️ Favoriser</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let currentListing = null;
+        let favorites = JSON.parse(localStorage.getItem('vantroc-favorites')) || [];
+
+        // Initialiser la carte
+        function initMap() {
+            map = L.map('map').setView([46.603354, 2.888334], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            loadListings();
+        }
+
+        // Charger les annonces depuis Xano
+        function loadListings() {
+            fetch('https://x8ki-letl-twmt.n7.xano.io/api:eRvwNQ3D/listing')
+                .then(response => response.json())
+                .then(listings => {
+                    console.log('Annonces récupérées:', listings);
+
+                    listings.forEach(listing => {
+                        const lat = listing.latitude || 48.8566;
+                        const lng = listing.longitude || 2.3522;
+
+                        // Couleur du marqueur selon le type
+                        let color = '#218051'; // OFFRE
+                        if (listing.type === 'trade') color = '#32B8C6'; // TROC
+                        if (listing.type === 'request') color = '#FFB800'; // DEMANDE
+
+                        // Créer un marqueur personnalisé
+                        const marker = L.circleMarker([lat, lng], {
+                            radius: 10,
+                            fillColor: color,
+                            color: '#fff',
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map);
+
+                        // Associer les données à l'annonce
+                        listing.color = color;
+
+                        // Click sur marqueur = ouvre modale
+                        marker.on('click', () => openModal(listing));
+                    });
+
+                    if (listings.length === 0) {
+                        console.log('Aucune annonce trouvée');
+                    }
+                })
+                .catch(error => console.error('Erreur chargement annonces:', error));
+        }
+
+        // Ouvrir la modale
+        function openModal(listing) {
+            currentListing = listing;
+
+            // Remplir l'annonce
+            document.getElementById('typeBadge').textContent = listing.type === 'trade' ? '🔄 TROC' : listing.type === 'request' ? '🔍 DEMANDE' : '🟢 OFFRE';
+            document.getElementById('typeBadge').className = `listing-type-badge ${listing.type || 'offer'}`;
+            document.getElementById('listingTitle').textContent = listing.title || 'Sans titre';
+            document.getElementById('listingDescription').textContent = (listing.description || 'Pas de description').substring(0, 150) + '...';
+            document.getElementById('listingLocation').textContent = listing.location || 'Localisation inconnue';
+            document.getElementById('listingDate').textContent = new Date(listing.created_at).toLocaleDateString('fr-FR');
+
+            // Remplir le profil (données mock pour démo)
+            const userEmoji = ['🚐', '🏕️', '🛖', '⛰️', '🌊'][Math.floor(Math.random() * 5)];
+            document.getElementById('profileAvatar').textContent = userEmoji;
+            document.getElementById('profileName').textContent = listing.creator_name || 'Utilisateur';
+            document.getElementById('profileRating').textContent = (Math.random() * 2 + 3).toFixed(1);
+            document.getElementById('profileReviews').textContent = Math.floor(Math.random() * 50 + 5);
+            document.getElementById('profileBio').textContent = listing.creator_bio || 'Voyageur passionné';
+            document.getElementById('profileAnnouncements').textContent = Math.floor(Math.random() * 100 + 5);
+            document.getElementById('profileReliability').textContent = '100%';
+
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        // Fermer la modale
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+            currentListing = null;
+        }
+
+        // Contacter utilisateur
+        function contactUser() {
+            alert('💬 Message envoyé à ' + (currentListing?.creator_name || 'l\'utilisateur'));
+            closeModal();
+        }
+
+        // Favoriser une annonce
+        function toggleFavorite() {
+            if (currentListing) {
+                const idx = favorites.findIndex(f => f.id === currentListing.id);
+                if (idx >= 0) {
+                    favorites.splice(idx, 1);
+                    alert('❌ Annonce retirée des favoris');
+                } else {
+                    favorites.push(currentListing);
+                    alert('❤️ Annonce ajoutée aux favoris');
+                }
+                localStorage.setItem('vantroc-favorites', JSON.stringify(favorites));
+            }
+        }
+
+        // Fermer modale au click outside
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'modalOverlay') closeModal();
+        });
+
+        // Initialiser au chargement
+        window.addEventListener('load', initMap);
+    </script>
+</body>
+</html>
